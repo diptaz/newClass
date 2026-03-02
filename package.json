@@ -1,19 +1,22 @@
 {
-  "name": "classsync---integrated-class-management-system",
+  "name": "ac24dia-class-management-system",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
+    "lint": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.39.0",
+    "bcryptjs": "2.4.3",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
-    "react-router-dom": "^7.11.0",
     "react-dom": "^19.2.3",
-    "@supabase/supabase-js": "2.39.0"
+    "react-router-dom": "^7.11.0",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

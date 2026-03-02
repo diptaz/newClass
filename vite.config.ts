@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
     return {
       server: {
         port: 3000,
-        open: true,
+        host: '0.0.0.0',
       },
       plugins: [react()],
       define: {
@@ -18,10 +18,6 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
-      },
-          build: {
-      target: 'esnext',
-      outDir: 'dist',
-    }
+      }
     };
 });

@@ -11,8 +11,8 @@ const supabaseKey = env.VITE_SUPABASE_KEY || 'sb_publishable_b8kEW4BnGV5DY9RYTUI
 // We provide placeholder values if config is missing to prevent createClient from throwing an error immediately.
 // Actual usage is guarded by isSupabaseConfigured() in the Store.
 export const supabase = createClient(
-  supabaseUrl || 'https://lvlpfocnblakfzwtbvzy.supabase.co', 
-  supabaseKey || 'sb_publishable_b8kEW4BnGV5DY9RYTUIIrg_Oibh-C9Z'
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseKey || 'placeholder-key'
 );
 
 // Helper to check if supabase is connected/configured

@@ -1,25 +1,31 @@
-import { Role, User, Announcement, Task, ScheduleItem, VideoMaterial, Subject, DocumentMaterial, TutorEvent } from '../types';
+import bcrypt from 'bcryptjs';
+import { Role, User, Announcement, Task, ScheduleItem, VideoMaterial, Subject, DocumentMaterial, TutorEvent, Confession, GalleryItem, TreasuryTransaction, Poll } from '../types';
+
+// Pre-hash the password 'password' for performance
+const hash = bcrypt.hashSync('password', 10);
 
 export const generateUsers = (): User[] => {
   const users: User[] = [];
 
   // 1 Admin
-  users.push({ id: 'admin', username: 'admin', fullName: 'Super Administrator', role: Role.ADMIN, isActive: true, password: 'password' });
+  users.push({ id: 'admin', username: 'admin', fullName: 'Super Administrator', role: Role.ADMIN, isActive: true, password: hash });
   // 1 Kurikulum
-  users.push({ id: 'kuri', username: 'kurikulum', fullName: 'Staff Kurikulum', role: Role.KURIKULUM, isActive: true, password: 'password' });
+  users.push({ id: 'kuri', username: 'kurikulum', fullName: 'Staff Kurikulum', role: Role.KURIKULUM, isActive: true, password: hash });
   // 1 Komti
-  users.push({ id: 'komti', username: 'komti', fullName: 'Ketua Tingkat', role: Role.KOMTI, isActive: true, password: 'password' });
+  users.push({ id: 'komti', username: 'komti', fullName: 'Ketua Tingkat', role: Role.KOMTI, isActive: true, password: hash });
   // 1 Wakomti
-  users.push({ id: 'wakomti', username: 'wakomti', fullName: 'Wakil Ketua', role: Role.WAKOMTI, isActive: true, password: 'password' });
+  users.push({ id: 'wakomti', username: 'wakomti', fullName: 'Wakil Ketua', role: Role.WAKOMTI, isActive: true, password: hash });
   // 1 IT
-  users.push({ id: 'it', username: 'it', fullName: 'IT Support', role: Role.IT_LOGISTIK, isActive: true, password: 'password' });
+  users.push({ id: 'it', username: 'it', fullName: 'IT Support', role: Role.IT_LOGISTIK, isActive: true, password: hash });
   // 1 Tatib
-  users.push({ id: 'tatib', username: 'tatib', fullName: 'Tata Tertib', role: Role.TATA_TERTIB, isActive: true, password: 'password' });
+  users.push({ id: 'tatib', username: 'tatib', fullName: 'Tata Tertib', role: Role.TATA_TERTIB, isActive: true, password: hash });
   // 1 Sekretaris
-  users.push({ id: 'sekre', username: 'sekretaris', fullName: 'Sekretaris Kelas', role: Role.SEKRETARIS, isActive: true, password: 'password' });
+  users.push({ id: 'sekre', username: 'sekretaris', fullName: 'Sekretaris Kelas', role: Role.SEKRETARIS, isActive: true, password: hash });
+  // 1 Bendahara
+  users.push({ id: 'bendahara', username: 'bendahara', fullName: 'Bendahara Kelas', role: Role.BENDAHARA, isActive: true, password: hash });
   
   // 1 Murid Bibilung (Tutor)
-  users.push({ id: 'bibilung1', username: 'bibilung', fullName: 'Master Bibilung', role: Role.MURID_BIBILUNG, isActive: true, password: 'password' });
+  users.push({ id: 'bibilung1', username: 'bibilung', fullName: 'Master Bibilung', role: Role.MURID_BIBILUNG, isActive: true, password: hash });
 
   // 35 Students
   for (let i = 1; i <= 35; i++) {
@@ -29,7 +35,7 @@ export const generateUsers = (): User[] => {
       fullName: `Student Name ${i}`,
       role: Role.STUDENT,
       isActive: true,
-      password: 'password',
+      password: hash,
       seatIndex: i - 1 // Initial seating 0-34
     });
   }
@@ -106,6 +112,82 @@ export const initialTutorEvents: TutorEvent[] = [
     tutorId: 'bibilung1',
     tutorName: 'Master Bibilung',
     maxParticipants: 5,
-    participants: ['s1', 's2']
+    participants: ['s1', 's2'],
+    waitingList: []
+  }
+];
+
+export const initialConfessions: Confession[] = [
+  {
+    id: '1',
+    content: 'I actually really like the new seating plan!',
+    timestamp: new Date().toISOString(),
+    likes: 5,
+    color: 'bg-yellow-200'
+  },
+  {
+    id: '2',
+    content: 'Who ate my sandwich from the fridge? >:(',
+    timestamp: new Date(Date.now() - 3600000).toISOString(),
+    likes: 12,
+    color: 'bg-pink-200'
+  }
+];
+
+export const initialGalleryItems: GalleryItem[] = [
+  {
+    id: '1',
+    url: 'https://picsum.photos/seed/class1/800/600',
+    caption: 'Class Trip 2024',
+    type: 'IMAGE',
+    uploadedBy: 'admin',
+    timestamp: new Date().toISOString()
+  },
+  {
+    id: '2',
+    url: 'https://picsum.photos/seed/class2/800/600',
+    caption: 'Sports Day Victory',
+    type: 'IMAGE',
+    uploadedBy: 's1',
+    timestamp: new Date(Date.now() - 86400000).toISOString()
+  }
+];
+
+export const initialTreasuryTransactions: TreasuryTransaction[] = [
+  {
+    id: '1',
+    date: new Date(Date.now() - 86400000 * 10).toISOString(),
+    type: 'INCOME',
+    amount: 500000,
+    description: 'Uang Kas Minggu 1',
+    category: 'Kas Mingguan',
+    recordedBy: 'bendahara'
+  },
+  {
+    id: '2',
+    date: new Date(Date.now() - 86400000 * 5).toISOString(),
+    type: 'EXPENSE',
+    amount: 150000,
+    description: 'Beli Spidol & Penghapus',
+    category: 'Perlengkapan',
+    recordedBy: 'bendahara'
+  }
+];
+
+export const initialPolls: Poll[] = [
+  {
+    id: '1',
+    question: 'Where should we go for the class trip?',
+    options: [
+      { id: 'opt1', text: 'Beach', votes: ['s1', 's2', 's3'] },
+      { id: 'opt2', text: 'Mountain', votes: ['s4', 's5'] },
+      { id: 'opt3', text: 'Museum', votes: ['s6'] }
+    ],
+    createdBy: 'komti',
+    createdAt: new Date().toISOString(),
+    deadline: new Date(Date.now() + 86400000 * 7).toISOString(),
+    isActive: true,
+    allowMultiple: false,
+    isAnonymous: false
   }
 ];
