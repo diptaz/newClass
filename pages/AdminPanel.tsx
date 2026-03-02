@@ -1,30 +1,47 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/Store';
 import { Role } from '../types';
-import { UserCog, Activity, Lock, Check, Rocket, Github, Globe, Server, Database, Copy } from 'lucide-react';
+import { UserCog, Activity, Lock, Check, Rocket, Github, Globe, Server, Database, Copy, KeyRound, ShieldCheck, AlertTriangle } from 'lucide-react';
 
-const SUPABASE_SQL = `
--- 1. USERS TABLE
-create table if not exists users (
+const FULL_RESET_SQL = `
+-- MASTER RESET SCRIPT (Copy and Run in Supabase SQL Editor)
+-- WARNING: This will delete ALL existing data and reset tables with seed data.
+-- Password for all users will be: 'password'
+
+-- 1. Enable Encryption Extension
+create extension if not exists pgcrypto;
+
+-- 2. Drop Old Objects
+drop function if exists verify_password;
+drop table if exists activity_logs;
+drop table if exists tutor_events;
+drop table if exists materials;
+drop table if exists videos;
+drop table if exists schedule;
+drop table if exists tasks;
+drop table if exists announcements;
+drop table if exists subjects;
+drop table if exists users;
+
+-- 3. Create Tables
+create table users (
   "id" text primary key,
-  "username" text,
+  "username" text unique,
   "fullName" text,
   "role" text,
-  "password" text,
+  "password" text, -- Stores bcrypt hash
   "isActive" boolean default true,
   "seatIndex" int2
 );
 
--- 2. SUBJECTS TABLE
-create table if not exists subjects (
+create table subjects (
   "id" text primary key,
   "name" text,
   "code" text,
   "teacher" text
 );
 
--- 3. ANNOUNCEMENTS TABLE
-create table if not exists announcements (
+create table announcements (
   "id" text primary key,
   "title" text,
   "content" text,
@@ -34,8 +51,7 @@ create table if not exists announcements (
   "type" text
 );
 
--- 4. TASKS TABLE
-create table if not exists tasks (
+create table tasks (
   "id" text primary key,
   "title" text,
   "description" text,
@@ -45,8 +61,7 @@ create table if not exists tasks (
   "createdBy" text
 );
 
--- 5. SCHEDULE TABLE
-create table if not exists schedule (
+create table schedule (
   "id" text primary key,
   "day" text,
   "time" text,
@@ -54,8 +69,7 @@ create table if not exists schedule (
   "room" text
 );
 
--- 6. VIDEOS TABLE
-create table if not exists videos (
+create table videos (
   "id" text primary key,
   "title" text,
   "url" text,
@@ -64,8 +78,7 @@ create table if not exists videos (
   "uploadedBy" text
 );
 
--- 7. MATERIALS TABLE
-create table if not exists materials (
+create table materials (
   "id" text primary key,
   "title" text,
   "type" text,
@@ -75,8 +88,7 @@ create table if not exists materials (
   "uploadedBy" text
 );
 
--- 8. TUTOR EVENTS TABLE
-create table if not exists tutor_events (
+create table tutor_events (
   "id" text primary key,
   "title" text,
   "description" text,
@@ -84,16 +96,85 @@ create table if not exists tutor_events (
   "tutorId" text,
   "tutorName" text,
   "maxParticipants" int2,
-  "participants" jsonb default '[]'
+  "participants" jsonb default '[]',
+  "waitingList" jsonb default '[]'
 );
 
--- 9. ACTIVITY LOGS
-create table if not exists activity_logs (
+create table activity_logs (
   "id" text primary key,
   "userId" text,
   "action" text,
   "timestamp" text
 );
+
+-- 4. Seed Data with Hashed Passwords
+do $$
+declare
+  -- Generate a bcrypt hash for 'password' using cost 10
+  pw_hash text := crypt('password', gen_salt('bf', 10)); 
+  i integer;
+begin
+  -- Admin
+  insert into users values ('admin', 'admin', 'Super Administrator', 'ADMIN', pw_hash, true, null);
+  
+  -- Staff Roles
+  insert into users values ('kuri', 'kurikulum', 'Staff Kurikulum', 'KURIKULUM', pw_hash, true, null);
+  insert into users values ('komti', 'komti', 'Ketua Tingkat', 'KOMTI', pw_hash, true, null);
+  insert into users values ('wakomti', 'wakomti', 'Wakil Ketua', 'WAKOMTI', pw_hash, true, null);
+  insert into users values ('it', 'it', 'IT Support', 'IT_LOGISTIK', pw_hash, true, null);
+  insert into users values ('tatib', 'tatib', 'Tata Tertib', 'TATA_TERTIB', pw_hash, true, null);
+  insert into users values ('sekre', 'sekretaris', 'Sekretaris Kelas', 'SEKRETARIS', pw_hash, true, null);
+  insert into users values ('bibilung1', 'bibilung', 'Master Bibilung', 'MURID_BIBILUNG', pw_hash, true, null);
+
+  -- Students 1 to 35
+  for i in 1..35 loop
+    insert into users values (
+      's' || i, 
+      'student' || i, 
+      'Student Name ' || i, 
+      'STUDENT', 
+      pw_hash, 
+      true, 
+      i-1
+    );
+  end loop;
+end $$;
+
+-- 5. Seed Content
+insert into subjects values 
+('1', 'Web Development', 'WEB101', 'Mr. Smith'),
+('2', 'Database Systems', 'DB201', 'Mrs. Jones'),
+('3', 'Calculus', 'MAT301', 'Dr. Brown');
+
+insert into schedule values 
+('1', 'Monday', '08:00 - 10:00', 'Web Development', 'Lab 1'),
+('2', 'Monday', '10:00 - 12:00', 'Database Systems', 'Lab 2');
+
+insert into announcements values
+('1', 'Welcome!', 'System has been reset. All passwords are "password".', now(), 'admin', 'Super Administrator', 'IMPORTANT');
+
+-- 6. Create Login Function (RPC)
+create or replace function verify_password(username_input text, password_input text)
+returns json
+language plpgsql
+as $$
+declare
+  found_user users%rowtype;
+begin
+  select * into found_user from users where username = username_input;
+
+  if found_user is null then
+    return null;
+  end if;
+
+  -- Verify password (checks against hash)
+  if found_user.password = crypt(password_input, found_user.password) then
+    return row_to_json(found_user);
+  else
+    return null;
+  end if;
+end;
+$$;
 `;
 
 export const AdminPanel = () => {
@@ -105,7 +186,7 @@ export const AdminPanel = () => {
   const filteredUsers = users.filter(u => u.username.toLowerCase().includes(search.toLowerCase()) || u.fullName.toLowerCase().includes(search.toLowerCase()));
 
   const handleCopySQL = () => {
-    navigator.clipboard.writeText(SUPABASE_SQL);
+    navigator.clipboard.writeText(FULL_RESET_SQL);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -133,7 +214,7 @@ export const AdminPanel = () => {
             onClick={() => setActiveTab('DEPLOYMENT')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition ${activeTab === 'DEPLOYMENT' ? 'bg-primary text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
           >
-            Deployment
+            Database Reset
           </button>
         </div>
       </div>
@@ -220,75 +301,42 @@ export const AdminPanel = () => {
 
       {activeTab === 'DEPLOYMENT' && (
         <div className="space-y-6 animate-fade-in">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-lg">
-            <h2 className="text-3xl font-bold mb-4 flex items-center gap-3">
-              <Rocket size={32} /> Deployment Guide
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 shadow-sm">
+            <h2 className="text-2xl font-bold mb-2 flex items-center gap-3 text-red-700 dark:text-red-400">
+              <AlertTriangle size={28} /> Database Repair & Reset
             </h2>
-            <p className="text-blue-100 text-lg max-w-2xl">
-              Langkah-langkah menghubungkan aplikasi ke Supabase (Database) dan Vercel.
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+               Gunakan script di bawah ini jika Anda mengalami masalah login atau ingin mereset ulang seluruh database ke kondisi awal.
+               <br/><strong>PERHATIAN:</strong> Semua data akan dihapus dan diganti dengan data default.
             </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Database className="text-green-600" /> 1. Setup Supabase
-              </h3>
-              <ol className="list-decimal list-inside space-y-3 text-gray-600 dark:text-gray-300">
-                <li>Buka <a href="https://supabase.com" target="_blank" className="text-primary hover:underline font-bold">supabase.com</a> dan buat project baru.</li>
-                <li>Setelah project jadi, buka menu <strong>SQL Editor</strong>.</li>
-                <li>
-                  <div className="flex items-center justify-between mb-2 mt-2">
-                    <span className="text-xs font-bold uppercase text-gray-500">Paste Script Berikut:</span>
-                    <button 
+            
+            <div className="relative">
+                <div className="flex items-center justify-between mb-2 bg-gray-800 rounded-t-lg px-4 py-2">
+                   <span className="text-xs font-bold text-gray-300 uppercase">SQL Editor Script</span>
+                   <button 
                       onClick={handleCopySQL} 
-                      className="text-xs flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+                      className="text-xs flex items-center gap-1 bg-primary text-white px-3 py-1.5 rounded hover:bg-blue-600 transition"
                     >
-                      {copied ? <Check size={12} className="text-green-500"/> : <Copy size={12} />} 
-                      {copied ? 'Copied' : 'Copy SQL'}
+                      {copied ? <Check size={14} /> : <Copy size={14} />} 
+                      {copied ? 'Copied!' : 'Copy Script'}
                     </button>
-                  </div>
-                  <div className="bg-gray-100 dark:bg-gray-900 p-2 rounded text-[10px] font-mono h-32 overflow-y-auto border dark:border-gray-700">
-                    <pre>{SUPABASE_SQL}</pre>
-                  </div>
-                </li>
-                <li>Klik <strong>RUN</strong> untuk membuat tabel database.</li>
-              </ol>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Server className="text-purple-600" /> 2. Connect to Vercel
-              </h3>
-              <ol className="list-decimal list-inside space-y-3 text-gray-600 dark:text-gray-300">
-                <li>Di Dashboard Supabase, buka <strong>Project Settings &gt; API</strong>.</li>
-                <li>Copy <strong>Project URL</strong> dan <strong>anon / public Key</strong>.</li>
-                <li>Buka Project Anda di Vercel, masuk ke <strong>Settings &gt; Environment Variables</strong>.</li>
-                <li>Tambahkan 2 variabel berikut:
-                   <div className="mt-2 space-y-2 font-mono text-xs">
-                     <div className="bg-gray-100 dark:bg-gray-900 p-2 rounded flex justify-between">
-                       <span>VITE_SUPABASE_URL</span>
-                       <span className="text-gray-400">paste_project_url_here</span>
-                     </div>
-                     <div className="bg-gray-100 dark:bg-gray-900 p-2 rounded flex justify-between">
-                       <span>VITE_SUPABASE_KEY</span>
-                       <span className="text-gray-400">paste_anon_key_here</span>
-                     </div>
-                   </div>
-                </li>
-              </ol>
-            </div>
+                </div>
+                <div className="bg-gray-900 p-4 rounded-b-lg font-mono text-xs text-green-400 h-96 overflow-y-auto border-t border-gray-700">
+                   <pre>{FULL_RESET_SQL}</pre>
+                </div>
+             </div>
+             
+             <div className="mt-6 flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-400">
+               <h4 className="font-bold text-gray-800 dark:text-white">Cara Menggunakan:</h4>
+               <ol className="list-decimal list-inside space-y-1 ml-2">
+                 <li>Copy script di atas.</li>
+                 <li>Buka Dashboard Supabase Anda.</li>
+                 <li>Masuk ke menu <strong>SQL Editor</strong>.</li>
+                 <li>Paste script dan klik <strong>Run</strong>.</li>
+                 <li>Coba login kembali di aplikasi ini dengan <code>student14</code> / <code>password</code>.</li>
+               </ol>
+             </div>
           </div>
-          
-           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
-              <h4 className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-2 mb-2">
-                <Rocket size={16} /> Deploy & Test
-              </h4>
-              <p className="text-sm text-blue-700 dark:text-blue-200">
-                Setelah Environment Variables ditambahkan, lakukan <strong>Redeploy</strong> di Vercel. 
-                Saat pertama kali dibuka, aplikasi akan otomatis mengisi database kosong dengan Data Demo (Admin, Siswa, dll).
-              </p>
-           </div>
         </div>
       )}
     </div>

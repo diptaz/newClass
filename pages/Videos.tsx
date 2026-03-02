@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/Store';
 import { Role } from '../types';
-import { Video, Plus, Trash2, ExternalLink, PlayCircle } from 'lucide-react';
+import { Video, Plus, Trash2, AlertCircle } from 'lucide-react';
 
 export const Videos = () => {
   const { videos, subjects, currentUser, addVideo, deleteVideo } = useStore();
@@ -12,17 +12,34 @@ export const Videos = () => {
 
   const canAdd = [Role.IT_LOGISTIK, Role.KURIKULUM, Role.ADMIN].includes(currentUser?.role as Role);
 
+  const getEmbedUrl = (url: string) => {
+    // 1. Handle Google Drive (Commonly confused with "Private link")
+    // Converts /view or /edit links to /preview for embedding
+    if (url.includes('drive.google.com') && (url.includes('/view') || url.includes('/edit'))) {
+       return url.replace(/\/view.*|\/edit.*/, '/preview');
+    }
+
+    // 2. Handle YouTube (Standard, Shorts, Live, Unlisted)
+    // Regex to extract Video ID from various YouTube URL formats
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/|live\/)([^#&?]*).*/;
+    const match = url.match(regExp);
+
+    if (match && match[2]) {
+        // ID is usually 11 chars. We allow 10-12 to be safe.
+        if (match[2].length >= 10) {
+            return `https://www.youtube.com/embed/${match[2]}`;
+        }
+    }
+    
+    // Fallback if regex doesn't match (e.g. maybe it's already an embed link or non-youtube)
+    return url;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
     
-    // Simple transform for youtube regular links to embed
-    let finalUrl = newVideo.url;
-    if (finalUrl.includes('youtube.com/watch?v=')) {
-        finalUrl = finalUrl.replace('watch?v=', 'embed/');
-    } else if (finalUrl.includes('youtu.be/')) {
-        finalUrl = finalUrl.replace('youtu.be/', 'www.youtube.com/embed/');
-    }
+    const finalUrl = getEmbedUrl(newVideo.url);
 
     addVideo({
       id: Date.now().toString(),
@@ -60,7 +77,7 @@ export const Videos = () => {
         <select 
           value={filterSubject}
           onChange={(e) => setFilterSubject(e.target.value)}
-          className="p-2 border rounded-lg bg-white dark:bg-gray-800 dark:text-white dark:border-gray-700"
+          className="p-2 border rounded-lg bg-white dark:bg-gray-800 dark:text-white dark:border-gray-700 focus:ring-2 focus:ring-primary outline-none"
         >
           <option value="ALL">All Subjects</option>
           {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
@@ -76,6 +93,7 @@ export const Videos = () => {
                 className="w-full h-full" 
                 title={video.title} 
                 allowFullScreen
+                loading="lazy"
               />
             </div>
             <div className="p-4">
@@ -86,7 +104,8 @@ export const Videos = () => {
                  {canAdd && (
                    <button 
                      onClick={() => deleteVideo(video.id)}
-                     className="text-gray-400 hover:text-red-500"
+                     className="text-gray-400 hover:text-red-500 transition-colors"
+                     title="Delete Video"
                    >
                      <Trash2 size={16} />
                    </button>
@@ -107,45 +126,68 @@ export const Videos = () => {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-md shadow-2xl">
             <h3 className="text-xl font-bold mb-4 dark:text-white">Add Video Material</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <input 
-                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="Video Title"
-                required
-                value={newVideo.title}
-                onChange={e => setNewVideo({...newVideo, title: e.target.value})}
-              />
-              <input 
-                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="YouTube URL or Link"
-                required
-                value={newVideo.url}
-                onChange={e => setNewVideo({...newVideo, url: e.target.value})}
-              />
-              <select 
-                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                required
-                value={newVideo.subject}
-                onChange={e => setNewVideo({...newVideo, subject: e.target.value})}
-              >
-                <option value="">Select Subject</option>
-                {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-              </select>
-              <input 
-                type="number"
-                min="1"
-                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="Week Number"
-                required
-                value={newVideo.week}
-                onChange={e => setNewVideo({...newVideo, week: Number(e.target.value)})}
-              />
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-500">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded">Save</button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                <input 
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                  placeholder="e.g. Introduction to React"
+                  required
+                  value={newVideo.title}
+                  onChange={e => setNewVideo({...newVideo, title: e.target.value})}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Video URL</label>
+                <input 
+                    className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                    placeholder="YouTube or Google Drive Link"
+                    required
+                    value={newVideo.url}
+                    onChange={e => setNewVideo({...newVideo, url: e.target.value})}
+                />
+                <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 p-2 rounded flex gap-2 items-start">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                    <p>
+                      For YouTube: Use <strong>Unlisted</strong> or <strong>Public</strong>. Private videos cannot be played.<br/>
+                      For Drive: Ensure "Anyone with the link" is set to Viewer.
+                    </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+                <select 
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                  required
+                  value={newVideo.subject}
+                  onChange={e => setNewVideo({...newVideo, subject: e.target.value})}
+                >
+                  <option value="">Select Subject</option>
+                  {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Week</label>
+                <input 
+                  type="number"
+                  min="1"
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                  placeholder="Week Number"
+                  required
+                  value={newVideo.week}
+                  onChange={e => setNewVideo({...newVideo, week: Number(e.target.value)})}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-primary text-white rounded-lg shadow hover:bg-blue-600 transition">Save Video</button>
               </div>
             </form>
           </div>
